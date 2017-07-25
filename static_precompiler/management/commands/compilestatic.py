@@ -1,3 +1,4 @@
+import posixpath
 import os
 import sys
 
@@ -21,11 +22,12 @@ def get_scanned_dirs():
     return sorted(dirs)
 
 
-def list_files(scanned_dirs):
+def list_source_paths(scanned_dirs):
     for scanned_dir in scanned_dirs:
         for dirname, dirnames, filenames in os.walk(scanned_dir):
             for filename in filenames:
                 path = os.path.join(dirname, filename)[len(scanned_dir):]
+                path = posixpath.join(*os.path.split(path))
                 if path.startswith("/"):
                     path = path[1:]
                 yield path
@@ -64,9 +66,9 @@ class Command(django.core.management.base.BaseCommand):
 
         if not options["watch"] or options["initial_scan"]:
             # Scan the watched directories and compile everything
-            for path in sorted(set(list_files(scanned_dirs))):
+            for source_path in sorted(set(list_source_paths(scanned_dirs))):
                 for compiler in compilers:
-                    if compiler.is_supported(path):
+                    if compiler.is_supported(source_path):
                         break
                 else:
                     compiler = None
@@ -75,7 +77,7 @@ class Command(django.core.management.base.BaseCommand):
                     continue
 
                 try:
-                    compiler.handle_changed_file(path, verbosity=verbosity)
+                    compiler.handle_changed_file(source_path, verbosity=verbosity)
                 except (exceptions.StaticCompilationError, ValueError) as e:
                     print(e)
 
